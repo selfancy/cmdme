@@ -1,0 +1,7 @@
+interface:
+  display_name: "Codex GPT Image"
+  short_description: "Generate and edit images via Images API"
+  default_prompt: "Use $codex-gpt-image to generate or edit an image through my configured Images API."
+
+policy:
+  allow_implicit_invocation: true

@@ -1,0 +1,9 @@
+.vscode/
+.idea/
+.DS_Store
+*.png
+*.jpg
+*.jpeg
+*.webp
+output/
+.env
