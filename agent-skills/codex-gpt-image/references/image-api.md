@@ -4,16 +4,15 @@ This skill intentionally uses the dedicated Images API rather than the Responses
 
 ## Endpoints
 
-The configured base URL is treated as an OpenAI-compatible API prefix. Trailing slashes are removed, `/v1` is appended when the URL path does not already end with `/v1`, and the script supports these paths:
+The configured base URL is stored as an OpenAI-compatible API prefix without a trailing `/v1`. Request scripts append `/v1` automatically and support these paths:
 
 ```text
-GET  <base_url>/models
-POST <base_url>/images/generations
-POST <base_url>/images/edits
+GET  <base_url>/v1/models
+POST <base_url>/v1/images/generations
+POST <base_url>/v1/images/edits
 ```
 
 `scripts/setup.ts` prints the `id` values from the provider's `data` array, lets the user select by number or ID, and writes the selected model to `.env`. A blank selection keeps the default `gpt-image-2`. The generation script's `--list-models` option remains available for listing models after setup.
-When the configured input URL does not include `/v1`, the model discovery request is sent to `<input-base-url>/v1/models`.
 
 Text-only generation sends JSON. Editing and reference-image generation send `multipart/form-data`.
 API requests include `Connection: close` and `Accept-Encoding: identity` headers. When downloading a provider-returned image URL, the API key is not forwarded.
@@ -83,7 +82,7 @@ node --experimental-strip-types scripts/generate_image.ts --help
 
 ```bash
 node --experimental-strip-types scripts/generate_image.ts \
-  --base-url https://provider.example/v1 \
+  --base-url https://provider.example \
   --prompt "A clean product photograph of a ceramic mug" \
   --out output/mug.png
 ```

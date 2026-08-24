@@ -6,10 +6,10 @@ This skill uses Google's `generateContent` API with image output. The request ve
 
 ```
 GET  <base-url>/v1/models
-POST <generate-base-url>/models/<model>:generateContent
+POST <base-url>/../v1beta/models/<model>:generateContent
 ```
 
-The model list accepts both the official `models` array and OpenAI-style `data` arrays. Pages are followed with `pageToken` when provided. For OpenAI-style model responses, setup uses the model `id` values and configures `/v1beta` as the generateContent base URL.
+The model list accepts both the official `models` array and OpenAI-style `data` arrays. Pages are followed with `pageToken` when provided. The generation script derives the `/v1beta` generateContent route from the configured base URL.
 
 ## Generation request
 
@@ -61,7 +61,6 @@ The Base64 bytes are decoded and written exactly to `--out`. A non-2xx response,
 
 ```env
 GEMINI_BASE_URL=<normalized URL>
-GEMINI_GENERATE_BASE_URL=<generateContent base URL>
 GEMINI_API_KEY=<key>
 GEMINI_MODEL=<selected model or gemini-3.1-flash-image>
 ```

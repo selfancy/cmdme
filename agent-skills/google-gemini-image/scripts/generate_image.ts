@@ -5,6 +5,7 @@ const path = require("node:path");
 
 const DEFAULT_MODEL = "gemini-3.1-flash-image";
 const DEFAULT_TIMEOUT_SECONDS = 600;
+const USER_AGENT = "google-gemini-image/1.0";
 
 type JsonObject = Record<string, unknown>;
 type Args = {
@@ -14,7 +15,7 @@ type Args = {
   imageSize?: string;
   timeout: number;
 };
-type Config = { baseUrl: string; generateBaseUrl: string; apiKey: string; model: string };
+type Config = { baseUrl: string; apiKey: string; model: string };
 type ImageData = { mimeType: string; data: Buffer };
 
 class ConfigurationError extends Error {}
@@ -58,16 +59,8 @@ function normalizeBaseUrl(input: string): string {
   return parsed.toString().replace(/\/+$/, "");
 }
 
-function normalizeGenerateBaseUrl(input: string): string {
-  let parsed: URL;
-  try { parsed = new URL(input.trim()); } catch { throw new ConfigurationError("GEMINI_GENERATE_BASE_URL must be an absolute http(s) URL"); }
-  if (parsed.protocol !== "http:" && parsed.protocol !== "https:") throw new ConfigurationError("GEMINI_GENERATE_BASE_URL must use http or https");
-  if (!parsed.hostname) throw new ConfigurationError("GEMINI_GENERATE_BASE_URL must include a hostname");
-  parsed.search = "";
-  parsed.hash = "";
-  parsed.pathname = parsed.pathname.replace(/\/+$/, "");
-  if (!parsed.pathname.endsWith("/v1") && !parsed.pathname.endsWith("/v1beta")) parsed.pathname += "/v1";
-  return parsed.toString().replace(/\/+$/, "");
+function betaBaseUrl(baseUrl: string): string {
+  return baseUrl.endsWith("/v1") ? baseUrl.slice(0, -3) + "/v1beta" : baseUrl + "/v1beta";
 }
 
 function redact(text: string, apiKey: string): string {
@@ -86,6 +79,8 @@ async function requestJson(url: string, apiKey: string, body: JsonObject, timeou
           Accept: "application/json",
           "Content-Type": "application/json",
           Connection: "close",
+          "Accept-Encoding": "identity",
+          "User-Agent": USER_AGENT,
           "x-goog-api-key": apiKey,
         },
         body: JSON.stringify(body),
@@ -142,15 +137,13 @@ function parseArgs(argv: string[]): Args {
 function loadConfig(skillDir: string): Config {
   const fileValues = parseEnvFile(path.join(skillDir, ".env"));
   const baseUrlValue = process.env.GEMINI_BASE_URL || fileValues.GEMINI_BASE_URL;
-  const generateBaseUrlValue = process.env.GEMINI_GENERATE_BASE_URL || fileValues.GEMINI_GENERATE_BASE_URL || baseUrlValue;
   const apiKey = process.env.GEMINI_API_KEY || fileValues.GEMINI_API_KEY;
   const model = process.env.GEMINI_MODEL || fileValues.GEMINI_MODEL || DEFAULT_MODEL;
   const missing: string[] = [];
   if (!baseUrlValue) missing.push("GEMINI_BASE_URL");
   if (!apiKey) missing.push("GEMINI_API_KEY");
-  if (!generateBaseUrlValue) missing.push("GEMINI_GENERATE_BASE_URL");
   if (missing.length) throw new ConfigurationError("missing " + missing.join(", ") + "; run node --experimental-strip-types scripts/setup.ts first");
-  return { baseUrl: normalizeBaseUrl(baseUrlValue), generateBaseUrl: normalizeGenerateBaseUrl(generateBaseUrlValue), apiKey, model: model.replace(/^models\//, "") };
+  return { baseUrl: normalizeBaseUrl(baseUrlValue), apiKey, model: model.replace(/^models\//, "") };
 }
 
 function buildPayload(args: Args): JsonObject {
@@ -209,7 +202,7 @@ async function main(): Promise<void> {
   const args = parseArgs(process.argv.slice(2));
   const skillDir = path.resolve(__dirname, "..");
   const config = loadConfig(skillDir);
-  const endpoint = config.generateBaseUrl + "/models/" + encodeURIComponent(config.model) + ":generateContent";
+  const endpoint = betaBaseUrl(config.baseUrl) + "/models/" + encodeURIComponent(config.model) + ":generateContent";
   const payload = await requestJson(endpoint, config.apiKey, buildPayload(args), args.timeout);
   const image = extractImage(payload);
   const outputPath = writeImage(args.out, image);

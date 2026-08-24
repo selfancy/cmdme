@@ -18,9 +18,9 @@ The skill stores its provider configuration in the skill directory:
 The required keys are:
 
 ```env
-CODEX_GPT_IMAGE_BASE_URL=https://provider.example/v1
-CODEX_GPT_IMAGE_API_KEY=replace-with-your-key
-CODEX_GPT_IMAGE_MODEL=gpt-image-2
+GPT_IMAGE_BASE_URL=https://provider.example
+GPT_IMAGE_API_KEY=replace-with-your-key
+GPT_IMAGE_MODEL=gpt-image-2
 ```
 
 On first setup, if the `.env` file or its model entry is missing, run:
@@ -29,7 +29,7 @@ On first setup, if the `.env` file or its model entry is missing, run:
 node --experimental-strip-types scripts/setup.ts
 ```
 
-Setup prompts for the base URL and API key, normalizes the base URL to include `/v1`, calls `GET <base-url>/v1/models`, presents the returned model IDs, and writes the user's selection to `.env` with permissions `0600`. Pressing Enter keeps the default `gpt-image-2`. Never repeat the key in a response, prompt, log, or generated file. The repository's `.gitignore` excludes `.env`.
+Setup prompts for the base URL and API key, stores the base URL without a trailing `/v1`, calls `GET <base-url>/v1/models`, presents the returned model IDs, and writes the user's selection to `.env` with permissions `0600`. The request scripts append `/v1` automatically. Pressing Enter keeps the default `gpt-image-2`. Never repeat the key in a response, prompt, log, or generated file. The repository's `.gitignore` excludes `.env`.
 
 Configuration precedence is:
 
@@ -37,9 +37,9 @@ Configuration precedence is:
 2. Process environment variables.
 3. `<skill-dir>/.env`.
 
-The API key is read from `CODEX_GPT_IMAGE_API_KEY` only. Do not accept a plaintext key command-line argument.
+The API key is read from `GPT_IMAGE_API_KEY` only. Do not accept a plaintext key command-line argument.
 
-When a configured base URL does not end with `/v1`, the script appends `/v1` automatically before adding the Images API path.
+The request scripts append `/v1` automatically; keep `GPT_IMAGE_BASE_URL` free of the `/v1` suffix.
 
 ## Routing
 

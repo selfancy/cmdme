@@ -6,6 +6,7 @@ const readline = require("node:readline/promises");
 
 const DEFAULT_MODEL = "gemini-3.1-flash-image";
 const DEFAULT_TIMEOUT_SECONDS = 120;
+const USER_AGENT = "google-gemini-image/1.0";
 
 type JsonObject = Record<string, unknown>;
 type ModelInfo = {
@@ -14,10 +15,7 @@ type ModelInfo = {
   displayName: string;
   methods: string[];
 };
-type ModelListResult = {
-  models: ModelInfo[];
-  generateBaseUrl: string;
-};
+type ModelListResult = ModelInfo[];
 
 class SetupError extends Error {}
 
@@ -75,6 +73,8 @@ async function requestJson(url: string, apiKey: string, method: "GET" | "POST", 
         headers: {
           Accept: "application/json",
           Connection: "close",
+          "Accept-Encoding": "identity",
+          "User-Agent": USER_AGENT,
           "x-goog-api-key": apiKey,
           ...(body ? { "Content-Type": "application/json" } : {}),
         },
@@ -102,10 +102,6 @@ async function requestJson(url: string, apiKey: string, method: "GET" | "POST", 
 function modelId(value: unknown): string | undefined {
   if (typeof value !== "string" || !value.trim()) return undefined;
   return value.trim().replace(/^models\//, "");
-}
-
-function betaBaseUrl(baseUrl: string): string {
-  return baseUrl.endsWith("/v1") ? baseUrl.slice(0, -3) + "/v1beta" : baseUrl + "/v1beta";
 }
 
 async function listModels(baseUrl: string, apiKey: string, timeoutSeconds: number): Promise<ModelListResult> {
@@ -143,13 +139,12 @@ async function listModels(baseUrl: string, apiKey: string, timeoutSeconds: numbe
     }
     pageToken = typeof payload.nextPageToken === "string" && payload.nextPageToken ? payload.nextPageToken : undefined;
   } while (pageToken);
-  return { models, generateBaseUrl: responseStyle === "openai" ? betaBaseUrl(baseUrl) : baseUrl };
+  return models;
 }
 
-function writeConfig(filePath: string, baseUrl: string, generateBaseUrl: string, apiKey: string, model: string): void {
+function writeConfig(filePath: string, baseUrl: string, apiKey: string, model: string): void {
   const contents = [
     "GEMINI_BASE_URL=" + baseUrl,
-    "GEMINI_GENERATE_BASE_URL=" + generateBaseUrl,
     "GEMINI_API_KEY=" + apiKey,
     "GEMINI_MODEL=" + model,
     "",
@@ -226,8 +221,7 @@ async function main(): Promise<void> {
   const baseUrl = normalizeBaseUrl(rawBaseUrl);
 
   console.log("\nFetching models from " + baseUrl + "/models ...");
-  const modelList = await listModels(baseUrl, rawApiKey, args.timeout);
-  const models = modelList.models;
+  const models = await listModels(baseUrl, rawApiKey, args.timeout);
   if (!models.length) throw new SetupError("no model supporting generateContent was returned by /v1/models");
   console.log("\nModels supporting generateContent:");
   models.forEach((model, index) => {
@@ -240,7 +234,7 @@ async function main(): Promise<void> {
   if (!models.some((model) => model.id === selectedModel)) {
     console.warn("Default model " + DEFAULT_MODEL + " was not returned; preserving the requested default.");
   }
-  writeConfig(envPath, baseUrl, modelList.generateBaseUrl, rawApiKey, selectedModel);
+  writeConfig(envPath, baseUrl, rawApiKey, selectedModel);
   console.log("Saved Gemini configuration to " + envPath);
   console.log("Selected model: " + selectedModel);
 }

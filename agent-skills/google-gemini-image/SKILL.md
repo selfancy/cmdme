@@ -27,12 +27,11 @@ The environment keys are:
 
 ```env
 GEMINI_BASE_URL=https://generativelanguage.googleapis.com
-GEMINI_GENERATE_BASE_URL=https://generativelanguage.googleapis.com/v1
 GEMINI_API_KEY=replace-with-your-key
 GEMINI_MODEL=gemini-3.1-flash-image
 ```
 
-The model-list base URL is normalized by appending `/v1` unless it already ends with `/v1`. Setup accepts both Google `models[]` and OpenAI-style `data[]` model responses. For an OpenAI-style proxy, setup automatically writes `GEMINI_GENERATE_BASE_URL` with the proxy's `/v1beta` generateContent route. The API key is sent only in the `x-goog-api-key` request header; never put it in a URL, command output, error message, or response.
+The base URL is normalized by appending `/v1` unless it already ends with `/v1`. Setup accepts both Google `models[]` and OpenAI-style `data[]` model responses. The generation script derives the `/v1beta` generateContent route from the same base URL. The API key is sent only in the `x-goog-api-key` request header; never put it in a URL, command output, error message, or response.
 
 Process environment variables take precedence over values in `.env`, except that the model still defaults to `gemini-3.1-flash-image` when unset.
 
@@ -40,7 +39,7 @@ Process environment variables take precedence over values in `.env`, except that
 
 1. If setup has not completed, run `scripts/setup.ts` and show the returned model list to the user.
 2. Run `scripts/generate_image.ts` with a complete prompt and an output path.
-3. The script calls `POST <GEMINI_GENERATE_BASE_URL>/models/{model}:generateContent` with `contents` and `generationConfig.responseModalities: ["IMAGE"]`.
+3. The script calls `POST <base-url>/../v1beta/models/{model}:generateContent` with `contents` and `generationConfig.responseModalities: ["IMAGE"]`.
 4. Save the first image found in `candidates[].content.parts[].inlineData` as the requested output file.
 5. Report the absolute output path and selected model without exposing credentials.
 

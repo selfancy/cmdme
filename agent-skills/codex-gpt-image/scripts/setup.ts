@@ -32,13 +32,21 @@ function parseEnvFile(filePath: string): Record<string, string> {
   return values;
 }
 
-function normalizeBaseUrl(input: string): string {
+function normalizeStoredBaseUrl(input: string): string {
   let parsed: URL;
-  try { parsed = new URL(input.trim()); } catch { throw new SetupError('CODEX_GPT_IMAGE_BASE_URL must be an absolute http(s) URL'); }
-  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') throw new SetupError('CODEX_GPT_IMAGE_BASE_URL must use http or https');
-  if (!parsed.hostname) throw new SetupError('CODEX_GPT_IMAGE_BASE_URL must include a hostname');
+  try { parsed = new URL(input.trim()); } catch { throw new SetupError('GPT_IMAGE_BASE_URL must be an absolute http(s) URL'); }
+  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') throw new SetupError('GPT_IMAGE_BASE_URL must use http or https');
+  if (!parsed.hostname) throw new SetupError('GPT_IMAGE_BASE_URL must include a hostname');
   parsed.search = '';
   parsed.hash = '';
+  const pathname = parsed.pathname.replace(/\/+$/, '');
+  const storedPath = pathname.endsWith('/v1') ? pathname.slice(0, -3) : pathname;
+  parsed.pathname = storedPath || '/';
+  return parsed.toString().replace(/\/+$/, '');
+}
+
+function apiBaseUrl(baseUrl: string): string {
+  const parsed = new URL(baseUrl);
   const pathname = parsed.pathname.replace(/\/+$/, '');
   parsed.pathname = pathname.endsWith('/v1') ? pathname : pathname + '/v1';
   return parsed.toString().replace(/\/+$/, '');
@@ -96,9 +104,9 @@ function modelIds(payload: JsonObject): string[] {
 
 function writeConfig(filePath: string, baseUrl: string, apiKey: string, model: string): void {
   const contents = [
-    'CODEX_GPT_IMAGE_BASE_URL=' + baseUrl,
-    'CODEX_GPT_IMAGE_API_KEY=' + apiKey,
-    'CODEX_GPT_IMAGE_MODEL=' + model,
+    'GPT_IMAGE_BASE_URL=' + baseUrl,
+    'GPT_IMAGE_API_KEY=' + apiKey,
+    'GPT_IMAGE_MODEL=' + model,
     '',
   ].join('\n');
   fs.writeFileSync(filePath, contents, { encoding: 'utf8', mode: 0o600 });
@@ -108,7 +116,7 @@ function writeConfig(filePath: string, baseUrl: string, apiKey: string, model: s
 async function promptLine(label: string, defaultValue: string | undefined): Promise<string> {
   if (!process.stdin.isTTY) {
     if (defaultValue) return defaultValue;
-    throw new SetupError('interactive setup requires a TTY; set CODEX_GPT_IMAGE_BASE_URL and CODEX_GPT_IMAGE_API_KEY in the environment');
+    throw new SetupError('interactive setup requires a TTY; set GPT_IMAGE_BASE_URL and GPT_IMAGE_API_KEY in the environment');
   }
   const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
   try {
@@ -158,16 +166,17 @@ async function main(): Promise<void> {
   const skillDir = path.resolve(__dirname, '..');
   const envPath = path.join(skillDir, '.env');
   const fileValues = parseEnvFile(envPath);
-  const configuredBaseUrl = args.baseUrl || process.env.CODEX_GPT_IMAGE_BASE_URL || fileValues.CODEX_GPT_IMAGE_BASE_URL;
-  const configuredApiKey = process.env.CODEX_GPT_IMAGE_API_KEY || fileValues.CODEX_GPT_IMAGE_API_KEY;
+  const configuredBaseUrl = args.baseUrl || process.env.GPT_IMAGE_BASE_URL || fileValues.GPT_IMAGE_BASE_URL;
+  const configuredApiKey = process.env.GPT_IMAGE_API_KEY || fileValues.GPT_IMAGE_API_KEY;
   const rawBaseUrl = configuredBaseUrl || await promptLine('Images API base URL', undefined);
   const rawApiKey = configuredApiKey || await promptLine('Images API key', undefined);
-  if (!rawBaseUrl.trim()) throw new SetupError('CODEX_GPT_IMAGE_BASE_URL is required');
-  if (!rawApiKey.trim()) throw new SetupError('CODEX_GPT_IMAGE_API_KEY is required');
-  const baseUrl = normalizeBaseUrl(rawBaseUrl);
+  if (!rawBaseUrl.trim()) throw new SetupError('GPT_IMAGE_BASE_URL is required');
+  if (!rawApiKey.trim()) throw new SetupError('GPT_IMAGE_API_KEY is required');
+  const baseUrl = normalizeStoredBaseUrl(rawBaseUrl);
+  const requestBaseUrl = apiBaseUrl(baseUrl);
 
-  console.log('\nFetching models from ' + baseUrl + '/models ...');
-  const ids = modelIds(await requestJson(baseUrl + '/models', rawApiKey, args.timeout));
+  console.log('\nFetching models from ' + requestBaseUrl + '/models ...');
+  const ids = modelIds(await requestJson(requestBaseUrl + '/models', rawApiKey, args.timeout));
   console.log('\nAvailable models:');
   ids.forEach((id, index) => console.log('  ' + (index + 1) + '. ' + id));
 

@@ -76,12 +76,12 @@ function parseEnvFile(filePath: string): Record<string, string> {
 
 function loadConfig(skillDir: string, explicitBaseUrl?: string): { baseUrl: string; apiKey: string; model: string } {
   const fileValues = parseEnvFile(path.join(skillDir, ".env"));
-  const baseUrl = explicitBaseUrl || process.env.CODEX_GPT_IMAGE_BASE_URL || fileValues.CODEX_GPT_IMAGE_BASE_URL;
-  const apiKey = process.env.CODEX_GPT_IMAGE_API_KEY || fileValues.CODEX_GPT_IMAGE_API_KEY;
-  const model = process.env.CODEX_GPT_IMAGE_MODEL || fileValues.CODEX_GPT_IMAGE_MODEL || DEFAULT_MODEL;
+  const baseUrl = explicitBaseUrl || process.env.GPT_IMAGE_BASE_URL || fileValues.GPT_IMAGE_BASE_URL;
+  const apiKey = process.env.GPT_IMAGE_API_KEY || fileValues.GPT_IMAGE_API_KEY;
+  const model = process.env.GPT_IMAGE_MODEL || fileValues.GPT_IMAGE_MODEL || DEFAULT_MODEL;
   const missing: string[] = [];
-  if (!baseUrl) missing.push("CODEX_GPT_IMAGE_BASE_URL");
-  if (!apiKey) missing.push("CODEX_GPT_IMAGE_API_KEY");
+  if (!baseUrl) missing.push("GPT_IMAGE_BASE_URL");
+  if (!apiKey) missing.push("GPT_IMAGE_API_KEY");
   if (missing.length) {
     throw new ConfigurationError(
       `missing provider configuration: ${missing.join(", ")}. Ask the user for the missing values and create ${path.join(skillDir, ".env")} with one KEY=VALUE entry per line.`,
@@ -90,11 +90,21 @@ function loadConfig(skillDir: string, explicitBaseUrl?: string): { baseUrl: stri
 
   const parsed = new URL(baseUrl);
   if (!(["http:", "https:"].includes(parsed.protocol)) || !parsed.hostname) {
-    throw new ConfigurationError("CODEX_GPT_IMAGE_BASE_URL must be an absolute http(s) URL");
+    throw new ConfigurationError("GPT_IMAGE_BASE_URL must be an absolute http(s) URL");
   }
+  parsed.search = "";
+  parsed.hash = "";
   const normalizedPath = parsed.pathname.replace(/\/+$/, "");
-  parsed.pathname = normalizedPath.endsWith("/v1") ? normalizedPath : `${normalizedPath}/v1`;
+  const storedPath = normalizedPath.endsWith("/v1") ? normalizedPath.slice(0, -3) : normalizedPath;
+  parsed.pathname = storedPath || "/";
   return { baseUrl: parsed.toString().replace(/\/+$/, ""), apiKey, model };
+}
+
+function apiBaseUrl(baseUrl: string): string {
+  const parsed = new URL(baseUrl);
+  const pathname = parsed.pathname.replace(/\/+$/, "");
+  parsed.pathname = pathname.endsWith("/v1") ? pathname : `${pathname}/v1`;
+  return parsed.toString().replace(/\/+$/, "");
 }
 
 function validateSize(size: string | undefined): void {
@@ -330,10 +340,10 @@ async function main(): Promise<void> {
   validateArgs(args);
   const { baseUrl, apiKey, model } = loadConfig(skillDir, args.baseUrl);
   if (args.listModels) {
-    modelIds(await requestJson(`${baseUrl}/models`, apiKey, "GET", undefined, {}, args.timeout)).forEach((id) => console.log(id));
+    modelIds(await requestJson(`${apiBaseUrl(baseUrl)}/models`, apiKey, "GET", undefined, {}, args.timeout)).forEach((id) => console.log(id));
     return;
   }
-  const endpoint = `${baseUrl}/images/${args.images.length ? "edits" : "generations"}`;
+  const endpoint = `${apiBaseUrl(baseUrl)}/images/${args.images.length ? "edits" : "generations"}`;
   const payload = args.images.length
     ? await requestJson(endpoint, apiKey, "POST", buildEditForm(args, model), {}, args.timeout)
     : await requestJson(endpoint, apiKey, "POST", JSON.stringify(buildGenerationPayload(args, model)), { "Content-Type": "application/json" }, args.timeout);
