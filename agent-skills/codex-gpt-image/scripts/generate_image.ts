@@ -92,7 +92,9 @@ function loadConfig(skillDir: string, explicitBaseUrl?: string): { baseUrl: stri
     throw new ConfigurationError("CODEX_GPT_IMAGE_BASE_URL must be an absolute http(s) URL");
   }
   if (model !== DEFAULT_MODEL) throw new ConfigurationError(`CODEX_GPT_IMAGE_MODEL must be ${DEFAULT_MODEL}`);
-  return { baseUrl: baseUrl.replace(/\/+$/, ""), apiKey, model };
+  const normalizedPath = parsed.pathname.replace(/\/+$/, "");
+  parsed.pathname = normalizedPath.endsWith("/v1") ? normalizedPath : `${normalizedPath}/v1`;
+  return { baseUrl: parsed.toString().replace(/\/+$/, ""), apiKey, model };
 }
 
 function validateSize(size: string | undefined): void {

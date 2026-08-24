@@ -33,6 +33,8 @@ Configuration precedence is:
 
 The API key is read from `CODEX_GPT_IMAGE_API_KEY` only. Do not accept a plaintext key command-line argument.
 
+When a configured base URL does not end with `/v1`, the script appends `/v1` automatically before adding the Images API path.
+
 ## Routing
 
 - Text-only requests use `POST <base_url>/images/generations`.

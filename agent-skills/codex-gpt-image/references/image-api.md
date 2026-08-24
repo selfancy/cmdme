@@ -4,7 +4,7 @@ This skill intentionally uses the dedicated Images API rather than the Responses
 
 ## Endpoints
 
-The configured base URL is treated as an OpenAI-compatible API prefix. Trailing slashes are removed, and the script appends exactly one of these paths:
+The configured base URL is treated as an OpenAI-compatible API prefix. Trailing slashes are removed, `/v1` is appended when the URL path does not already end with `/v1`, and the script then appends exactly one of these paths:
 
 ```text
 POST <base_url>/images/generations
