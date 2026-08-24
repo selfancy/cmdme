@@ -55,12 +55,8 @@ function normalizeBaseUrl(input: string): string {
   parsed.search = "";
   parsed.hash = "";
   const pathname = parsed.pathname.replace(/\/+$/, "");
-  parsed.pathname = pathname.endsWith("/v1") ? pathname : pathname + "/v1";
+  parsed.pathname = pathname.endsWith("/v1beta") ? pathname.slice(0, -7) : pathname.endsWith("/v1") ? pathname.slice(0, -3) : pathname;
   return parsed.toString().replace(/\/+$/, "");
-}
-
-function betaBaseUrl(baseUrl: string): string {
-  return baseUrl.endsWith("/v1") ? baseUrl.slice(0, -3) + "/v1beta" : baseUrl + "/v1beta";
 }
 
 function redact(text: string, apiKey: string): string {
@@ -202,7 +198,7 @@ async function main(): Promise<void> {
   const args = parseArgs(process.argv.slice(2));
   const skillDir = path.resolve(__dirname, "..");
   const config = loadConfig(skillDir);
-  const endpoint = betaBaseUrl(config.baseUrl) + "/models/" + encodeURIComponent(config.model) + ":generateContent";
+  const endpoint = config.baseUrl + "/v1beta/models/" + encodeURIComponent(config.model) + ":generateContent";
   const payload = await requestJson(endpoint, config.apiKey, buildPayload(args), args.timeout);
   const image = extractImage(payload);
   const outputPath = writeImage(args.out, image);

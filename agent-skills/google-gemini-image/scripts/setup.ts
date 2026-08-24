@@ -54,7 +54,7 @@ function normalizeBaseUrl(input: string): string {
   parsed.search = "";
   parsed.hash = "";
   const pathname = parsed.pathname.replace(/\/+$/, "");
-  parsed.pathname = pathname.endsWith("/v1") ? pathname : pathname + "/v1";
+  parsed.pathname = pathname.endsWith("/v1beta") ? pathname.slice(0, -7) : pathname.endsWith("/v1") ? pathname.slice(0, -3) : pathname;
   return parsed.toString().replace(/\/+$/, "");
 }
 
@@ -109,7 +109,7 @@ async function listModels(baseUrl: string, apiKey: string, timeoutSeconds: numbe
   let pageToken: string | undefined;
   let responseStyle: "google" | "openai" | undefined;
   do {
-    const url = new URL(baseUrl + "/models");
+    const url = new URL(baseUrl + "/v1/models");
     if (pageToken) url.searchParams.set("pageToken", pageToken);
     const payload = await requestJson(url.toString(), apiKey, "GET", undefined, timeoutSeconds);
     const entries = Array.isArray(payload.models)
@@ -220,7 +220,7 @@ async function main(): Promise<void> {
   if (!rawApiKey.trim()) throw new SetupError("GEMINI_API_KEY is required");
   const baseUrl = normalizeBaseUrl(rawBaseUrl);
 
-  console.log("\nFetching models from " + baseUrl + "/models ...");
+  console.log("\nFetching models from " + baseUrl + "/v1/models ...");
   const models = await listModels(baseUrl, rawApiKey, args.timeout);
   if (!models.length) throw new SetupError("no model supporting generateContent was returned by /v1/models");
   console.log("\nModels supporting generateContent:");

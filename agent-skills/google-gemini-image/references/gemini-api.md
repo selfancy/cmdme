@@ -1,12 +1,12 @@
 # Gemini image generation API
 
-This skill uses Google's `generateContent` API with image output. The request version prefix is intentionally `/v1`, because the skill normalizes the configured base URL to that prefix.
+This skill uses Google's `generateContent` API with image output. `GEMINI_BASE_URL` stores only the root URL; the scripts append the API version paths themselves.
 
 ## Endpoints
 
 ```
 GET  <base-url>/v1/models
-POST <base-url>/../v1beta/models/<model>:generateContent
+POST <base-url>/v1beta/models/<model>:generateContent
 ```
 
 The model list accepts both the official `models` array and OpenAI-style `data` arrays. Pages are followed with `pageToken` when provided. The generation script derives the `/v1beta` generateContent route from the configured base URL.
@@ -57,7 +57,7 @@ The Base64 bytes are decoded and written exactly to `--out`. A non-2xx response,
 
 ## Setup
 
-`scripts/setup.ts` asks for the base URL and key, normalizes the base URL, calls `/v1/models`, prints supported generation models, and writes:
+`scripts/setup.ts` asks for the base URL and key, stores the root base URL without `/v1`, calls `/v1/models`, prints supported generation models, and writes:
 
 ```env
 GEMINI_BASE_URL=<normalized URL>
