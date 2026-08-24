@@ -41,7 +41,8 @@ Process environment variables take precedence over values in `.env`, except that
 2. Run `scripts/generate_image.ts` with a complete prompt and an output path.
 3. The script calls `POST <base-url>/v1beta/models/{model}:generateContent` with `contents` and `generationConfig.responseModalities: ["IMAGE"]`.
 4. Save the first image found in `candidates[].content.parts[].inlineData` as the requested output file.
-5. Report the absolute output path and selected model without exposing credentials.
+5. Treat returned image bytes as an opaque output artifact. Do not inspect, view, identify, describe, caption, OCR, classify, moderate, or otherwise analyze the generated image, and do not send it to an image-understanding tool.
+6. Report the absolute output path and selected model without exposing credentials.
 
 Example:
 
