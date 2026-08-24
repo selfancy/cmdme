@@ -4,12 +4,16 @@ This skill intentionally uses the dedicated Images API rather than the Responses
 
 ## Endpoints
 
-The configured base URL is treated as an OpenAI-compatible API prefix. Trailing slashes are removed, `/v1` is appended when the URL path does not already end with `/v1`, and the script then appends exactly one of these paths:
+The configured base URL is treated as an OpenAI-compatible API prefix. Trailing slashes are removed, `/v1` is appended when the URL path does not already end with `/v1`, and the script supports these paths:
 
 ```text
+GET  <base_url>/models
 POST <base_url>/images/generations
 POST <base_url>/images/edits
 ```
+
+`scripts/setup.ts` prints the `id` values from the provider's `data` array, lets the user select by number or ID, and writes the selected model to `.env`. A blank selection keeps the default `gpt-image-2`. The generation script's `--list-models` option remains available for listing models after setup.
+When the configured input URL does not include `/v1`, the model discovery request is sent to `<input-base-url>/v1/models`.
 
 Text-only generation sends JSON. Editing and reference-image generation send `multipart/form-data`.
 API requests include `Connection: close` and `Accept-Encoding: identity` headers. When downloading a provider-returned image URL, the API key is not forwarded.
@@ -29,7 +33,7 @@ API requests include `Connection: close` and `Accept-Encoding: identity` headers
 }
 ```
 
-Only explicitly supplied optional values are sent. `output_compression` is sent only for JPEG or WebP output. The model is always `gpt-image-2` and is read from `.env`.
+Only explicitly supplied optional values are sent. `output_compression` is sent only for JPEG or WebP output. The model is read from `.env` and defaults to `gpt-image-2`.
 
 ## Edit multipart fields
 

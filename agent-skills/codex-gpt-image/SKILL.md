@@ -23,7 +23,13 @@ CODEX_GPT_IMAGE_API_KEY=replace-with-your-key
 CODEX_GPT_IMAGE_MODEL=gpt-image-2
 ```
 
-On the first image request, if the base URL or API key is missing, ask the user for those two values, then create the `.env` file with permissions `0600`; always write `CODEX_GPT_IMAGE_MODEL=gpt-image-2` yourself. Never repeat the key in a response, prompt, log, or generated file. The repository's `.gitignore` excludes `.env`.
+On first setup, if the `.env` file or its model entry is missing, run:
+
+```bash
+node --experimental-strip-types scripts/setup.ts
+```
+
+Setup prompts for the base URL and API key, normalizes the base URL to include `/v1`, calls `GET <base-url>/v1/models`, presents the returned model IDs, and writes the user's selection to `.env` with permissions `0600`. Pressing Enter keeps the default `gpt-image-2`. Never repeat the key in a response, prompt, log, or generated file. The repository's `.gitignore` excludes `.env`.
 
 Configuration precedence is:
 
@@ -40,21 +46,23 @@ When a configured base URL does not end with `/v1`, the script appends `/v1` aut
 - Text-only requests use `POST <base_url>/images/generations`.
 - Requests with one or more input images or a mask use `POST <base_url>/images/edits`.
 - A mask requires at least one input image; the first input image is the edit target.
-- This skill only supports the `gpt-image-2` model configured in `.env`.
+- The model configured in `.env` defaults to `gpt-image-2`; first setup can change it to a model returned by the provider's model list.
 - Use the bundled `scripts/generate_image.ts`; do not create an ad-hoc API runner.
 
 ## Workflow
 
 1. Determine whether the request is generation or editing and label input files in the prompt when their role matters (edit target, reference, mask, or compositing source).
 2. Preserve explicit user constraints, especially for edits: state what may change and what must remain unchanged.
-3. Run `scripts/generate_image.ts` with Node's TypeScript type stripping and the requested prompt and parameters.
-4. Do not inspect, identify, describe, OCR, classify, or otherwise analyze the generated image content after the API returns it. Treat the returned bytes as an opaque output artifact.
-5. Report the absolute output path and the selected model/endpoint, but never report credentials.
+3. On first setup, run `node --experimental-strip-types scripts/setup.ts` and let the user select a returned model (or accept the default `gpt-image-2`).
+4. Run `scripts/generate_image.ts` with Node's TypeScript type stripping and the requested prompt and parameters.
+5. Do not inspect, identify, describe, OCR, classify, or otherwise analyze the generated image content after the API returns it. Treat the returned bytes as an opaque output artifact.
+6. Report the absolute output path and the selected model/endpoint, but never report credentials.
 
 ## Supported controls
 
 The script supports the dedicated Images API controls below:
 
+- `--list-models`
 - `--prompt`
 - `--n` (`1`–`10`)
 - `--size`

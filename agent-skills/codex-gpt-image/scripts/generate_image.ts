@@ -21,6 +21,7 @@ const OUTPUT_FORMATS = new Set(["png", "jpeg", "webp"]);
 const MODERATION_VALUES = new Set(["auto", "low"]);
 
 type Args = {
+  listModels: boolean;
   prompt: string;
   out: string;
   images: string[];
@@ -91,7 +92,6 @@ function loadConfig(skillDir: string, explicitBaseUrl?: string): { baseUrl: stri
   if (!(["http:", "https:"].includes(parsed.protocol)) || !parsed.hostname) {
     throw new ConfigurationError("CODEX_GPT_IMAGE_BASE_URL must be an absolute http(s) URL");
   }
-  if (model !== DEFAULT_MODEL) throw new ConfigurationError(`CODEX_GPT_IMAGE_MODEL must be ${DEFAULT_MODEL}`);
   const normalizedPath = parsed.pathname.replace(/\/+$/, "");
   parsed.pathname = normalizedPath.endsWith("/v1") ? normalizedPath : `${normalizedPath}/v1`;
   return { baseUrl: parsed.toString().replace(/\/+$/, ""), apiKey, model };
@@ -117,6 +117,7 @@ function validateSize(size: string | undefined): void {
 }
 
 function validateArgs(args: Args): void {
+  if (args.listModels) return;
   validateSize(args.size);
   if (!args.prompt.trim()) throw new RequestValidationError("--prompt cannot be empty");
   if (!Number.isInteger(args.n) || args.n < 1 || args.n > 10) throw new RequestValidationError("--n must be between 1 and 10");
@@ -143,11 +144,12 @@ function validateArgs(args: Args): void {
 }
 
 function parseArgs(argv: string[]): Args {
-  const args: Args = { prompt: "", out: "", images: [], n: 1, outputFormat: "png", timeout: DEFAULT_TIMEOUT_SECONDS, force: false };
+  const args: Args = { listModels: false, prompt: "", out: "", images: [], n: 1, outputFormat: "png", timeout: DEFAULT_TIMEOUT_SECONDS, force: false };
   const valueFlags = new Set(["--prompt", "--out", "--image", "--mask", "--base-url", "--n", "--size", "--quality", "--background", "--output-format", "--output-compression", "--moderation", "--timeout"]);
   if (argv.includes("--help") || argv.includes("-h")) printHelp();
   for (let index = 0; index < argv.length; index += 1) {
     const flag = argv[index];
+    if (flag === "--list-models") { args.listModels = true; continue; }
     if (flag === "--force") { args.force = true; continue; }
     if (!valueFlags.has(flag)) throw new RequestValidationError(`unknown argument: ${flag}`);
     const value = argv[++index];
@@ -166,8 +168,8 @@ function parseArgs(argv: string[]): Args {
     else if (flag === "--moderation") args.moderation = value;
     else if (flag === "--timeout") args.timeout = Number(value);
   }
-  if (!args.prompt) throw new RequestValidationError("--prompt is required");
-  if (!args.out) throw new RequestValidationError("--out is required");
+  if (!args.listModels && !args.prompt) throw new RequestValidationError("--prompt is required");
+  if (!args.listModels && !args.out) throw new RequestValidationError("--out is required");
   if (!Number.isFinite(args.timeout) || args.timeout < 0) throw new RequestValidationError("--timeout must be a non-negative number of seconds");
   return args;
 }
@@ -176,6 +178,7 @@ function printHelp(): never {
   console.log(`Usage: node --experimental-strip-types scripts/generate_image.ts --prompt TEXT --out FILE [options]
 
 Options:
+  --list-models                List models supported by the configured provider
   --image FILE                 Input/reference image; repeatable (switches to edits)
   --mask FILE                  Mask image for localized edits
   --base-url URL               Temporary Images API base URL override
@@ -248,14 +251,21 @@ async function fetchBytes(url: string, init: RequestInit, timeoutSeconds: number
   }
 }
 
-async function requestJson(url: string, apiKey: string, body: BodyInit, headers: Record<string, string>, timeoutSeconds: number): Promise<Record<string, unknown>> {
-  const { response, bytes } = await fetchBytes(url, { method: "POST", headers: { Authorization: `Bearer ${apiKey}`, Accept: "application/json", Connection: "close", "Accept-Encoding": "identity", ...headers }, body }, timeoutSeconds);
+async function requestJson(url: string, apiKey: string, method: "GET" | "POST", body: BodyInit | undefined, headers: Record<string, string>, timeoutSeconds: number): Promise<Record<string, unknown>> {
+  const { response, bytes } = await fetchBytes(url, { method, headers: { Authorization: `Bearer ${apiKey}`, Accept: "application/json", Connection: "close", "Accept-Encoding": "identity", ...headers }, body }, timeoutSeconds);
   const text = bytes.toString("utf8");
   if (!response.ok) throw new ProviderError(`provider returned HTTP ${response.status}: ${text.slice(0, 4000)}`);
   let payload: unknown;
   try { payload = JSON.parse(text); } catch (error) { throw new ProviderError("provider returned a non-JSON response"); }
   if (!payload || typeof payload !== "object" || Array.isArray(payload)) throw new ProviderError("provider response must be a JSON object");
   return payload as Record<string, unknown>;
+}
+
+function modelIds(payload: Record<string, unknown>): string[] {
+  if (!Array.isArray(payload.data)) throw new ProviderError("provider model response has no data array");
+  const ids = payload.data.flatMap((item) => item && typeof item === "object" && !Array.isArray(item) && typeof (item as Record<string, unknown>).id === "string" ? [(item as Record<string, string>).id] : []);
+  if (!ids.length) throw new ProviderError("provider model response has no usable model ids");
+  return ids;
 }
 
 async function downloadImageUrl(url: string, timeoutSeconds: number, index: number): Promise<Buffer> {
@@ -319,10 +329,14 @@ async function main(): Promise<void> {
   const skillDir = path.resolve(__dirname, "..");
   validateArgs(args);
   const { baseUrl, apiKey, model } = loadConfig(skillDir, args.baseUrl);
+  if (args.listModels) {
+    modelIds(await requestJson(`${baseUrl}/models`, apiKey, "GET", undefined, {}, args.timeout)).forEach((id) => console.log(id));
+    return;
+  }
   const endpoint = `${baseUrl}/images/${args.images.length ? "edits" : "generations"}`;
   const payload = args.images.length
-    ? await requestJson(endpoint, apiKey, buildEditForm(args, model), {}, args.timeout)
-    : await requestJson(endpoint, apiKey, JSON.stringify(buildGenerationPayload(args, model)), { "Content-Type": "application/json" }, args.timeout);
+    ? await requestJson(endpoint, apiKey, "POST", buildEditForm(args, model), {}, args.timeout)
+    : await requestJson(endpoint, apiKey, "POST", JSON.stringify(buildGenerationPayload(args, model)), { "Content-Type": "application/json" }, args.timeout);
   const images = await decodeImages(payload, args.timeout);
   const written = writeImages(images, args.out, args.force);
   written.forEach((filePath) => console.log(`Wrote ${path.resolve(filePath)}`));

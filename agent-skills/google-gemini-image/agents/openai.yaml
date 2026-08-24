@@ -1,0 +1,7 @@
+interface:
+  display_name: "Google Gemini Image"
+  short_description: "Generate images with Gemini generateContent"
+  default_prompt: "Use $google-gemini-image to generate an image with Google Gemini."
+
+policy:
+  allow_implicit_invocation: true
